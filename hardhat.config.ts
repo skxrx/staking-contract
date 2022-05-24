@@ -6,6 +6,7 @@ import "@nomiclabs/hardhat-etherscan"
 import "@typechain/hardhat"
 import "hardhat-gas-reporter"
 import "solidity-coverage"
+import "./tasks/index"
 
 import { HardhatUserConfig } from "hardhat/config"
 dotenv.config()
@@ -19,10 +20,13 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      chainId: 13137
+      forking: {
+        url: process.env.ALCHEMY_KEY as string,
+        enabled: true
+      }
     },
     rinkeby: {
-      url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
+      url: `${process.env.ALCHEMY_KEY}`,
       accounts: [process.env.PRIVATE_KEY as string]
     }
   },

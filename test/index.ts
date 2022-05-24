@@ -66,8 +66,6 @@ describe("Staking", () => {
     let mintAmount = 10000
     stakeAmount = 100
 
-    console.log("owner: ", owner)
-    console.log(config.TOKEN0_ADDRESS, config.TOKEN1_ADDRESS)
     const token0 = new ethers.Contract(
       config.TOKEN0_ADDRESS,
       ERC20Token.abi,
@@ -80,11 +78,9 @@ describe("Staking", () => {
       owner
     )
 
-    console.log(1)
     await token0.connect(owner).mint(owner.address, mintAmount)
     await token1.connect(owner).mint(owner.address, mintAmount)
 
-    // Submit 10000 of TOKEN0 and TOKEN1 to the liquidity pool to get liquidity tokens for test signer.
     const router02 = new ethers.Contract(
       config.ROUTER02_ADDRESS,
       IUniswapV2Router02.abi,
@@ -113,68 +109,34 @@ describe("Staking", () => {
       owner
     )
 
-    console.log(liquidityToken)
-
     await liquidityToken.connect(owner).approve(staking.address, stakeAmount)
-    console.log(2)
 
-    // Finally, stake 100 of received liquidity tokens as test signer.
-    console.log(3)
-    const txStake = staking.connect(owner).stake(stakeAmount)
-    console.log(4)
-    console.log(txStake)
+    const txStake = await staking.connect(owner).stake(stakeAmount)
+
     const rStake = await (await txStake).wait()
-    console.log(rStake)
-    console.log(5)
-    console.log(3)
   })
 
   it("claim: should revert given lockUpTime didn't pass.", async () => {
     await expect(staking.connect(owner).claim()).to.be.revertedWith(
-      "ERROR: must wait for lock interval to pass."
+      "# Must wait for lock interval to pass."
     )
   })
 
   it("unstake: should revert because user didn't claim the reward yet.", async () => {
     await expect(staking.connect(owner).unstake()).to.be.revertedWith(
-      "ERROR: must claim reward before unstaking."
+      "# Must claim reward before unstaking."
     )
-  })
-
-  it("claim: should be able to claim the reward.", async () => {
-    // Move lockUpTime seconds to the future (to make sure that lockUpTime passed).
-    await hre.ethers.provider.send("evm_increaseTime", [config.LOCK_INTERVAL])
-
-    // Call the function.
-    const txClaim = staking.connect(owner).claim()
-    const rClaim = await (await txClaim).wait()
-
-    // Manually calculate the expected reward.
-    const balance = (await staking.stakeOf(owner.address))[0]
-    const stakeStartTimestamp = (await staking.stakeOf(owner.address))[1]
-    const stakeEndTimestamp = (await staking.stakeOf(owner.address))[2]
-
-    const rewardPerInterval = Math.round(
-      (balance * config.REWARD_PERCENTAGE) / 100
-    )
-    const numOfIntervals = Math.round(
-      (stakeEndTimestamp - stakeStartTimestamp) / config.REWARD_INTERVAL
-    )
-    const reward = rewardPerInterval * numOfIntervals
-
-    expect(rClaim.events[1].args[0]).to.equal(owner.address)
-    expect(rClaim.events[1].args[1]).to.equal(reward)
   })
 
   it("stake: should revert because user should unstake after claiming the reward to stake again.", async () => {
     await expect(staking.connect(owner).stake(20)).to.be.revertedWith(
-      "ERROR: must unstake after claiming the reward to stake again."
+      "# Must unstake after claiming the reward to stake again."
     )
   })
 
   it("claim: should revert because user already claimed the reward.", async () => {
     await expect(staking.connect(owner).claim()).to.be.revertedWith(
-      "ERROR: already claimed the reward."
+      "# Already claimed the reward."
     )
   })
 
