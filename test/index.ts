@@ -8,11 +8,12 @@ import ERC20Token from "../abi/erc20_abi.json"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 import { Contract } from "ethers"
 import config from "../testcfg"
-
 describe("Staking", () => {
   let staking: Contract
   let owner: SignerWithAddress
   let stakeAmount: number
+
+  let network
 
   before(async () => {
     const Staking = await ethers.getContractFactory("Staking")
@@ -61,7 +62,6 @@ describe("Staking", () => {
   })
 
   it("stake: should successfully stake liquidity tokens.", async () => {
-    // Mint some TOKEN0 and TOKEN1 tokens for test signer.
     let afterMinute = new Date().getTime() + 60
     let mintAmount = 10000
     stakeAmount = 100
@@ -110,10 +110,12 @@ describe("Staking", () => {
     )
 
     await liquidityToken.connect(owner).approve(staking.address, stakeAmount)
+    const txStake = staking.connect(owner).stake(stakeAmount)
 
-    const txStake = await staking.connect(owner).stake(stakeAmount)
+    const rStake = (await txStake).wait()
 
-    const rStake = await (await txStake).wait()
+    expect(rStake.events[1].args[0]).to.equal(owner.address)
+    expect(rStake.events[1].args[1]).to.equal(stakeAmount)
   })
 
   it("claim: should revert given lockUpTime didn't pass.", async () => {
@@ -126,6 +128,22 @@ describe("Staking", () => {
     await expect(staking.connect(owner).unstake()).to.be.revertedWith(
       "# Must claim reward before unstaking."
     )
+  })
+
+  it("claim: should be able to claim the reward.", async () => {
+    network = ethers.providers.getNetwork("rinkeby")
+    await hre.ethers.provider.send("evm_increaseTime", [config.LOCK_INTERVAL])
+
+    const claimableRewardOnAddr = staking.balances(owner.address)
+      .claimableReward
+
+    const txClaim = staking.connect(owner).claim()
+    const rClaim = await (await txClaim).wait()
+
+    const reward = 0 + claimableRewardOnAddr
+
+    expect(rClaim.events[1].args[0]).to.equal(owner.address)
+    expect(claimableRewardOnAddr).to.equal(reward)
   })
 
   it("stake: should revert because user should unstake after claiming the reward to stake again.", async () => {
@@ -141,7 +159,7 @@ describe("Staking", () => {
   })
 
   it("unstake: should be able to unstake the staked tokens.", async () => {
-    const txUnstake = staking.connect(owner).unstake()
+    const txUnstake = staking.connect(owner).unstake(owner.address)
     const rUnstake = await (await txUnstake).wait()
 
     expect(rUnstake.events[1].args[0]).to.equal(owner.address)
